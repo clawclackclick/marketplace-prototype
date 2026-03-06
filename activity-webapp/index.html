@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Marketplace</title>
+    <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@latest/dist/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .category-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .category-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.2);
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .category-icon {
+            font-size: 32px;
+        }
+        
+        .category-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .category-count {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        
+        .deals-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .deal-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .deal-item:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .deal-info h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .deal-info p {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .deal-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+        
+        .buy-button {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        
+        .buy-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 18px;
+            color: #888;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 60px;
+            color: #ff4757;
+        }
+        
+        .view-all {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            color: #00d4ff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .view-all:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛒 Bot Marketplace</h1>
+        <p>Browse and purchase AI bots by category</p>
+    </div>
+    
+    <div class="container">
+        <div id="content" class="categories-grid">
+            <div class="loading">Loading deals...</div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Discord SDK
+        const discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID || '1317855174554566656');
+        
+        let authToken = null;
+        let userId = null;
+        
+        async function init() {
+            try {
+                // Authenticate with Discord
+                const { access_token } = await discordSdk.commands.authenticate({
+                    access_token: localStorage.getItem('discord_access_token')
+                });
+                
+                if (access_token) {
+                    localStorage.setItem('discord_access_token', access_token);
+                    authToken = access_token;
+                }
+                
+                // Get user info
+                const user = await discordSdk.commands.getUser();
+                userId = user.id;
+                
+                // Load deals
+                await loadDeals();
+                
+            } catch (error) {
+                console.error('Auth error:', error);
+                document.getElementById('content').innerHTML = 
+                    '<div class="error">Please launch this activity from Discord</div>';
+            }
+        }
+        
+        async function loadDeals() {
+            try {
+                const response = await fetch('/api/deals');
+                const deals = await response.json();
+                
+                // Group deals by category
+                const categories = groupByCategory(deals);
+                
+                renderCategories(categories);
+                
+            } catch (error) {
+                console.error('Error loading deals:', error);
+                document.getElementById('content').innerHTML = 
+                    '<div class="error">Failed to load deals. Please try again.</div>';
+            }
+        }
+        
+        function groupByCategory(deals) {
+            const categories = {};
+            
+            deals.forEach(deal => {
+                // Extract category from description or use default
+                let category = 'Other';
+                let icon = '🤖';
+                
+                const desc = deal.description?.toLowerCase() || '';
+                const name = deal.name?.toLowerCase() || '';
+                
+                if (desc.includes('image') || desc.includes('photo') || desc.includes('vision') || 
+                    name.includes('image') || name.includes('vision')) {
+                    category = 'Image Generation';
+                    icon = '🎨';
+                } else if (desc.includes('code') || desc.includes('programming') || desc.includes('developer') ||
+                           name.includes('code') || name.includes('dev')) {
+                    category = 'Code Assistant';
+                    icon = '💻';
+                } else if (desc.includes('chat') || desc.includes('conversation') || desc.includes('talk') ||
+                           name.includes('chat') || name.includes('companion')) {
+                    category = 'Chat Companion';
+                    icon = '💬';
+                } else if (desc.includes('data') || desc.includes('analysis') || desc.includes('analytics') ||
+                           name.includes('data') || name.includes('analyst')) {
+                    category = 'Data Analysis';
+                    icon = '📊';
+                } else if (desc.includes('writing') || desc.includes('content') || desc.includes('text') ||
+                           name.includes('writer') || name.includes('content')) {
+                    category = 'Content Creation';
+                    icon = '✍️';
+                } else if (desc.includes('game') || desc.includes('gaming') || desc.includes('play') ||
+                           name.includes('game')) {
+                    category = 'Gaming';
+                    icon = '🎮';
+                } else if (desc.includes('music') || desc.includes('audio') || desc.includes('sound') ||
+                           name.includes('music') || name.includes('audio')) {
+                    category = 'Music & Audio';
+                    icon = '🎵';
+                } else if (desc.includes('business') || desc.includes('productivity') || desc.includes('work') ||
+                           name.includes('business') || name.includes('productivity')) {
+                    category = 'Business';
+                    icon = '💼';
+                }
+                
+                if (!categories[category]) {
+                    categories[category] = {
+                        icon: icon,
+                        deals: []
+                    };
+                }
+                
+                categories[category].deals.push(deal);
+            });
+            
+            return categories;
+        }
+        
+        function renderCategories(categories) {
+            const container = document.getElementById('content');
+            container.innerHTML = '';
+            
+            // Sort categories by number of deals
+            const sortedCategories = Object.entries(categories)
+                .sort((a, b) => b[1].deals.length - a[1].deals.length);
+            
+            sortedCategories.forEach(([categoryName, categoryData]) => {
+                const card = document.createElement('div');
+                card.className = 'category-card';
+                
+                const dealsHtml = categoryData.deals.slice(0, 3).map(deal => `
+                    <div class="deal-item">
+                        <div class="deal-info">
+                            <h4>${escapeHtml(deal.name)}</h4>
+                            <p>${escapeHtml(deal.description?.substring(0, 50) || 'No description')}...</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="deal-price">$${deal.price}</div>
+                            <button class="buy-button" onclick="buyDeal('${deal.id}')">Buy</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                card.innerHTML = `
+                    <div class="category-header">
+                        <span class="category-icon">${categoryData.icon}</span>
+                        <span class="category-title">${escapeHtml(categoryName)}</span>
+                        <span class="category-count">${categoryData.deals.length} deals</span>
+                    </div>
+                    <div class="deals-list">
+                        ${dealsHtml}
+                    </div>
+                    ${categoryData.deals.length > 3 ? `
+                        <div class="view-all" onclick="viewCategory('${categoryName}')">
+                            View all ${categoryData.deals.length} deals →
+                        </div>
+                    ` : ''}
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function buyDeal(dealId) {
+            try {
+                const response = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        buyerId: userId,
+                        botId: dealId,
+                        amount: 0 // Will be fetched from deal
+                    })
+                });
+                
+                const transaction = await response.json();
+                
+                // Complete transaction
+                await fetch(`/api/transactions/${transaction.id}/complete`, {
+                    method: 'POST'
+                });
+                
+                // Show success message
+                alert('Purchase successful! Transaction ID: ' + transaction.id);
+                
+                // Refresh deals
+                await loadDeals();
+                
+            } catch (error) {
+                console.error('Buy error:', error);
+                alert('Failed to complete purchase. Please try again.');
+            }
+        }
+        
+        function viewCategory(categoryName) {
+            // Will be implemented to show all deals in a category
+            alert('View all deals in ' + categoryName + ' - Coming soon!');
+        }
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

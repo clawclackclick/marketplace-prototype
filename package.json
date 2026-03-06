@@ -17,7 +17,9 @@
     "test:bots": "./start-test-bots.sh",
     "test:bots:stop": "./stop-test-bots.sh",
     "test:sellers": "node test-bots/seller-bots.js",
-    "test:buyers": "node test-bots/buyer-bots.js"
+    "test:buyers": "node test-bots/buyer-bots.js",
+    "activity": "node activity-server.js",
+    "dev:all": "concurrently \"npm run start\" \"npm run activity\""
   },
   "keywords": [
     "discord",

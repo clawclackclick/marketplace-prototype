@@ -387,6 +387,11 @@ client.on('interactionCreate', async interaction => {
         console.log(`🛒 Handling buy button for deal ${dealId}`);
         await handleBuyButton(interaction, dealId, interaction.user.id);
       }
+      // Handle Activity launcher button
+      else if (interaction.customId === 'launch_marketplace_activity') {
+        console.log(`🚀 Launching marketplace activity for user ${interaction.user.id}`);
+        await handleActivityLaunch(interaction);
+      }
       // Handle back to browse button
       else if (interaction.customId === 'back_to_browse') {
         console.log(`◀ Handling back button`);
@@ -552,6 +557,61 @@ async function handleViewButton(interaction, dealId) {
 }
 
 // Error handling
+// Handle Activity launch
+async function handleActivityLaunch(interaction) {
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+  
+  try {
+    // For now, show a message explaining the Activity feature
+    // In production, this would launch the actual Discord Activity
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🚀 Bot Marketplace Activity')
+      .setDescription('Browse all deals by category in our interactive WebApp!')
+      .setColor(0x00d4ff)
+      .addFields(
+        { name: '🎨 Image Generation', value: 'AI bots for creating images and art', inline: true },
+        { name: '💻 Code Assistant', value: 'Programming and development helpers', inline: true },
+        { name: '💬 Chat Companion', value: 'Conversational AI companions', inline: true },
+        { name: '📊 Data Analysis', value: 'Data processing and analytics bots', inline: true },
+        { name: '✍️ Content Creation', value: 'Writing and content generation', inline: true },
+        { name: '🎮 Gaming', value: 'Game-related bots and assistants', inline: true },
+        { name: '🎵 Music & Audio', value: 'Audio processing and music bots', inline: true },
+        { name: '💼 Business', value: 'Productivity and business tools', inline: true },
+        { name: '🤖 Other', value: 'Miscellaneous AI bots', inline: true }
+      )
+      .setFooter({ text: 'Use /browse for the classic text-based browsing experience' });
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setLabel('🌐 Open Web Marketplace')
+          .setStyle(ButtonStyle.Link)
+          .setURL('http://localhost:3000'), // This will be the Activity URL in production
+        new ButtonBuilder()
+          .setCustomId('back_to_browse')
+          .setLabel('◀ Back to Browse')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+    await interaction.update({
+      content: null,
+      embeds: [embed],
+      components: [row]
+    });
+
+    console.log(`✅ Activity launch info shown to user ${interaction.user.id}`);
+
+  } catch (error) {
+    console.error('❌ Error in handleActivityLaunch:', error);
+    await interaction.update({
+      content: '❌ Failed to launch marketplace activity. Please try /browse instead.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
 client.on('error', error => {
   console.error('❌ Discord client error:', error);
 });
