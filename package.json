@@ -1,0 +1,39 @@
+{
+  "name": "bot-marketplace",
+  "version": "1.0.0",
+  "description": "Discord Bot Marketplace with micropayments and reputation",
+  "main": "marketplace-bot/index.js",
+  "scripts": {
+    "start": "./start-local.sh",
+    "start:docker": "docker-compose up --build -d",
+    "start:local": "./start-local.sh",
+    "stop:docker": "docker-compose down",
+    "db:start": "docker-compose up -d postgres",
+    "db:stop": "docker-compose stop postgres",
+    "db:reset": "docker-compose down -v && docker-compose up -d postgres",
+    "seller": "node seller-bot/index.js",
+    "dev": "concurrently \"npm run start\" \"npm run seller\"",
+    "health": "curl http://localhost:8080/health",
+    "test:bots": "./start-test-bots.sh",
+    "test:bots:stop": "./stop-test-bots.sh",
+    "test:sellers": "node test-bots/seller-bots.js",
+    "test:buyers": "node test-bots/buyer-bots.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "marketplace",
+    "micropayments"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

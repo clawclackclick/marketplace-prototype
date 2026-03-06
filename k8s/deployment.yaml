@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-bot
+  labels:
+    app: marketplace-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marketplace-bot
+  template:
+    metadata:
+      labels:
+        app: marketplace-bot
+    spec:
+      containers:
+      - name: bot
+        image: marketplace-bot:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MARKETPLACE_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bot-secrets
+              key: token
+        - name: MARKETPLACE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: bot-secrets
+              key: client-id
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: bot-secrets
+              key: database-url
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketplace-bot
+spec:
+  selector:
+    app: marketplace-bot
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP

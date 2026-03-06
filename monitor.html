@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #0f3460;
+        }
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e94560;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        .panel {
+            background: #16213e;
+            border-radius: 12px;
+            border: 1px solid #0f3460;
+            overflow: hidden;
+        }
+        .panel-header {
+            background: #0f3460;
+            padding: 15px 20px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header .status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e94560;
+            animation: pulse 1s infinite;
+        }
+        .panel-header .status.connected {
+            background: #00d9ff;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .panel-content {
+            padding: 0;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .item:hover {
+            background: #1a1a3e;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .item.new {
+            animation: highlight 2s ease-out;
+        }
+        @keyframes highlight {
+            0% { background: rgba(233, 69, 96, 0.3); }
+            100% { background: transparent; }
+        }
+        .item-info {
+            flex: 1;
+        }
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .item-meta {
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .item-price {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+        .item-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-on_air { background: #00d9ff33; color: #00d9ff; }
+        .status-sold { background: #e9456033; color: #e94560; }
+        .status-completed { background: #00ff8833; color: #00ff88; }
+        .log {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            padding: 10px 20px;
+            border-bottom: 1px solid #0f3460;
+            color: #aaa;
+        }
+        .log.new {
+            animation: highlight 2s ease-out;
+        }
+        .log-time {
+            color: #667eea;
+        }
+        .log-buy { color: #00ff88; }
+        .log-sell { color: #00d9ff; }
+        .log-error { color: #e94560; }
+        .empty {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+        }
+        .refresh-indicator {
+            font-size: 0.8rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Marketplace Monitor</h1>
+        <p>Real-time trading activity</p>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3>🤖 Main Bot</h3>
+            <div class="value" id="mainBotStatus" style="font-size: 1.2rem;">Checking...</div>
+        </div>
+        <div class="stat-card">
+            <h3>📦 Active Deals</h3>
+            <div class="value" id="activeDeals">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>💰 Total Sold</h3>
+            <div class="value" id="totalSold">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>💵 Total Volume</h3>
+            <div class="value" id="totalVolume">-</div>
+        </div>
+    </div>
+
+    <div class="stats" style="margin-top: -15px;">
+        <div class="stat-card">
+            <h3>🤖 Test Bots</h3>
+            <div class="value" id="testBotsStatus" style="font-size: 1rem;">Checking...</div>
+        </div>
+        <div class="stat-card">
+            <h3>💓 Health Status</h3>
+            <div class="value" id="healthStatus" style="font-size: 1rem;">Checking...</div>
+        </div>
+        <div class="stat-card">
+            <h3>🔄 Discord WS</h3>
+            <div class="value" id="discordStatus" style="font-size: 1rem;">Checking...</div>
+        </div>
+        <div class="stat-card">
+            <h3>⏱️ Last Update</h3>
+            <div class="value" id="lastUpdate" style="font-size: 1rem;">-</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">
+                <span>📦 Active Deals</span>
+                <span class="status" id="dealsStatus"></span>
+            </div>
+            <div class="panel-content" id="dealsList">
+                <div class="empty">Loading...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span>💰 Recent Transactions</span>
+                <span class="refresh-indicator" id="refreshIndicator">Updating...</span>
+            </div>
+            <div class="panel-content" id="transactionsList">
+                <div class="empty">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        let lastDeals = [];
+        let lastTransactions = [];
+        let sellerNames = {}; // Cache seller names
+
+        function formatPrice(price) {
+            return '$' + parseFloat(price).toFixed(2);
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getSellerName(sellerId, description) {
+            // Try to extract bot name from description first
+            if (description) {
+                const match = description.match(/Posted by (SellerBot-[A-C])/);
+                if (match) return match[1];
+            }
+            // Return cached name or shortened ID
+            if (sellerNames[sellerId]) return sellerNames[sellerId];
+            return sellerId.substring(0, 8);
+        }
+
+        async function fetchDeals() {
+            try {
+                const response = await fetch(`${API_BASE}/api/deals?status=on_air`);
+                const deals = await response.json();
+
+                document.getElementById('dealsStatus').classList.add('connected');
+                document.getElementById('activeDeals').textContent = deals.length;
+
+                // Check for new deals
+                const newDeals = deals.filter(d => !lastDeals.find(ld => ld.id === d.id));
+
+                const dealsList = document.getElementById('dealsList');
+                if (deals.length === 0) {
+                    dealsList.innerHTML = '<div class="empty">No active deals</div>';
+                } else {
+                    dealsList.innerHTML = deals.map(deal => {
+                        const isNew = newDeals.find(nd => nd.id === deal.id);
+                        const sellerName = getSellerName(deal.sellerId, deal.description);
+                        return `
+                            <div class="item ${isNew ? 'new' : ''}">
+                                <div class="item-info">
+                                    <div class="item-name">${escapeHtml(deal.name)}</div>
+                                    <div class="item-meta">${escapeHtml(deal.description.substring(0, 60))}...</div>
+                                    <div class="item-meta">👤 Seller: ${escapeHtml(sellerName)} • Posted ${formatDate(deal.createdAt)}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div class="item-price">${formatPrice(deal.price)}</div>
+                                    <span class="item-status status-${deal.status}">${deal.status}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                lastDeals = deals;
+                return deals;
+            } catch (error) {
+                console.error('Failed to fetch deals:', error);
+                document.getElementById('dealsStatus').classList.remove('connected');
+                return [];
+            }
+        }
+
+        async function fetchAllDeals() {
+            try {
+                const response = await fetch(`${API_BASE}/api/deals?status=on_air,sold`);
+                const deals = await response.json();
+
+                const sold = deals.filter(d => d.status === 'sold');
+                const volume = sold.reduce((sum, d) => sum + d.price, 0);
+
+                document.getElementById('totalSold').textContent = sold.length;
+                document.getElementById('totalVolume').textContent = formatPrice(volume);
+
+                return deals;
+            } catch (error) {
+                console.error('Failed to fetch all deals:', error);
+                return [];
+            }
+        }
+
+        async function fetchTransactions() {
+            try {
+                const response = await fetch(`${API_BASE}/api/transactions?limit=20`);
+                const transactions = await response.json();
+                return transactions;
+            } catch (error) {
+                console.error('Failed to fetch transactions:', error);
+                return [];
+            }
+        }
+
+        function getBuyerName(buyerId, description) {
+            // Try to extract bot name from description or ID
+            if (description) {
+                // Check if it's a test bot transaction
+                if (buyerId.includes('buyer_x')) return 'BuyerBot-X';
+                if (buyerId.includes('buyer_y')) return 'BuyerBot-Y';
+                if (buyerId.includes('buyer_z')) return 'BuyerBot-Z';
+            }
+            if (buyerId.includes('buyer') || buyerId.includes('Buyer')) {
+                return 'BuyerBot';
+            }
+            return buyerId.substring(0, 8);
+        }
+
+        async function checkSystemStatus() {
+            try {
+                // Check main bot health
+                const healthResponse = await fetch(`${API_BASE}/health`);
+                const health = await healthResponse.json();
+
+                const mainBotEl = document.getElementById('mainBotStatus');
+                const healthEl = document.getElementById('healthStatus');
+                const discordEl = document.getElementById('discordStatus');
+
+                if (health.status === 'healthy') {
+                    mainBotEl.textContent = '✅ Online';
+                    mainBotEl.style.color = '#00ff88';
+                    healthEl.textContent = '✅ Healthy';
+                    healthEl.style.color = '#00ff88';
+                } else {
+                    mainBotEl.textContent = '❌ Unhealthy';
+                    mainBotEl.style.color = '#e94560';
+                    healthEl.textContent = '❌ Unhealthy';
+                    healthEl.style.color = '#e94560';
+                }
+
+                if (health.discord === 'connected') {
+                    discordEl.textContent = '✅ Connected';
+                    discordEl.style.color = '#00ff88';
+                } else {
+                    discordEl.textContent = '❌ Disconnected';
+                    discordEl.style.color = '#e94560';
+                }
+
+            } catch (error) {
+                document.getElementById('mainBotStatus').textContent = '❌ Offline';
+                document.getElementById('mainBotStatus').style.color = '#e94560';
+                document.getElementById('healthStatus').textContent = '❌ Unknown';
+                document.getElementById('healthStatus').style.color = '#e94560';
+                document.getElementById('discordStatus').textContent = '❌ Unknown';
+                document.getElementById('discordStatus').style.color = '#e94560';
+            }
+        }
+
+        function checkTestBotsStatus() {
+            // This would need server-side support to check actual process status
+            // For now, we'll infer from recent activity
+            const testBotsEl = document.getElementById('testBotsStatus');
+            testBotsEl.textContent = 'Check console';
+            testBotsEl.style.color = '#888';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function addLog(message, type = 'info') {
+            const transactionsList = document.getElementById('transactionsList');
+            const time = formatTime(Date.now());
+            const logClass = type === 'buy' ? 'log-buy' : type === 'sell' ? 'log-sell' : type === 'error' ? 'log-error' : '';
+
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log new';
+            logEntry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${logClass}">${message}</span>`;
+
+            // Remove "Loading..." or "No transactions yet"
+            if (transactionsList.querySelector('.empty')) {
+                transactionsList.innerHTML = '';
+            }
+
+            transactionsList.insertBefore(logEntry, transactionsList.firstChild);
+
+            // Keep only last 50 logs
+            while (transactionsList.children.length > 50) {
+                transactionsList.removeChild(transactionsList.lastChild);
+            }
+
+            // Remove animation class after animation
+            setTimeout(() => logEntry.classList.remove('new'), 2000);
+        }
+
+        async function update() {
+            document.getElementById('refreshIndicator').textContent = 'Updating...';
+
+            // Check system status
+            await checkSystemStatus();
+            checkTestBotsStatus();
+
+            const prevDeals = [...lastDeals];
+            const [deals, transactions] = await Promise.all([
+                fetchDeals(),
+                fetchAllDeals(),
+                fetchTransactions()
+            ]);
+
+            // Fetch latest transactions for buyer info
+            const latestTransactions = await fetchTransactions();
+
+            // Detect new deals
+            const newDeals = deals.filter(d => !prevDeals.find(pd => pd.id === d.id));
+            newDeals.forEach(deal => {
+                const sellerName = getSellerName(deal.sellerId, deal.description);
+                addLog(`📦 NEW DEAL: ${deal.name} by ${sellerName} - ${formatPrice(deal.price)}`, 'sell');
+            });
+
+            // Detect sold deals and show buyer info
+            const soldDeals = prevDeals.filter(pd => !deals.find(d => d.id === pd.id) && pd.status === 'on_air');
+            soldDeals.forEach(deal => {
+                const sellerName = getSellerName(deal.sellerId, deal.description);
+                // Find matching transaction for buyer info
+                const tx = latestTransactions.find(t => t.dealId === deal.id);
+                const buyerName = tx ? getBuyerName(tx.buyerId, tx.dealDescription) : 'Unknown';
+                addLog(`💰 SOLD: ${deal.name} | ${sellerName} → ${buyerName} - ${formatPrice(deal.price)}`, 'buy');
+            });
+
+            document.getElementById('lastUpdate').textContent = formatTime(Date.now());
+            document.getElementById('refreshIndicator').textContent = 'Live';
+        }
+
+        // Initial load
+        update();
+
+        // Refresh every 5 seconds
+        setInterval(update, 5000);
+
+        // Add initial log
+        addLog('Monitor started - Connected to marketplace', 'info');
+    </script>
+</body>
+</html>

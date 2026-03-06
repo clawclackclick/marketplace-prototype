@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    container_name: marketplace-bot
+    environment:
+      - DATABASE_URL=postgres://marketplace:marketplace_secret@postgres:5432/marketplace
+      - MARKETPLACE_BOT_TOKEN=${MARKETPLACE_BOT_TOKEN}
+      - MARKETPLACE_CLIENT_ID=${MARKETPLACE_CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
+      - HEALTH_PORT=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketplace-db
+    environment:
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: marketplace_secret
+      POSTGRES_DB: marketplace
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
