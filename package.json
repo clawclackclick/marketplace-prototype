@@ -19,7 +19,8 @@
     "test:sellers": "node test-bots/seller-bots.js",
     "test:buyers": "node test-bots/buyer-bots.js",
     "activity": "node activity-server.js",
-    "dev:all": "concurrently \"npm run start\" \"npm run activity\""
+    "dev:all": "concurrently \"npm run start\" \"npm run activity\"",
+    "render": "node render-server.js"
   },
   "keywords": [
     "discord",
@@ -31,8 +32,10 @@
   "license": "MIT",
   "dependencies": {
     "axios": "^1.13.6",
+    "cors": "^2.8.6",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
+    "express": "^5.2.1",
     "pg": "^8.11.3"
   },
   "devDependencies": {

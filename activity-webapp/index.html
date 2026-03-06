@@ -143,6 +143,34 @@
             box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
         }
         
+        @keyframes highlightNew {
+            0% {
+                border-left: 3px solid #00d4ff;
+                background: rgba(0, 212, 255, 0.1);
+            }
+            100% {
+                border-left: 3px solid transparent;
+                background: rgba(0, 0, 0, 0.2);
+            }
+        }
+        
+        .deal-item.new-deal {
+            animation: highlightNew 3s ease-out;
+        }
+        
+        @keyframes highlightCategory {
+            0% {
+                border-left: 3px solid #00d4ff;
+            }
+            100% {
+                border-left: 3px solid rgba(255, 255, 255, 0.1);
+            }
+        }
+        
+        .category-card.new-deals {
+            animation: highlightCategory 3s ease-out;
+        }
+        
         .loading {
             text-align: center;
             padding: 60px;
@@ -185,35 +213,40 @@
     </div>
 
     <script>
-        // Initialize Discord SDK
-        const discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID || '1317855174554566656');
-        
+        // Initialize Discord SDK (if available)
+        let discordSdk = null;
         let authToken = null;
         let userId = null;
+        let knownDealIds = new Set(); // Track known deals for highlighting new ones
         
         async function init() {
             try {
-                // Authenticate with Discord
-                const { access_token } = await discordSdk.commands.authenticate({
-                    access_token: localStorage.getItem('discord_access_token')
-                });
-                
-                if (access_token) {
-                    localStorage.setItem('discord_access_token', access_token);
-                    authToken = access_token;
+                // Try to initialize Discord SDK
+                if (typeof DiscordSDK !== 'undefined') {
+                    discordSdk = new DiscordSDK('1317855174554566656');
+                    
+                    // Authenticate with Discord
+                    const { access_token } = await discordSdk.commands.authenticate({
+                        access_token: localStorage.getItem('discord_access_token')
+                    });
+                    
+                    if (access_token) {
+                        localStorage.setItem('discord_access_token', access_token);
+                        authToken = access_token;
+                    }
+                    
+                    // Get user info
+                    const user = await discordSdk.commands.getUser();
+                    userId = user.id;
                 }
                 
-                // Get user info
-                const user = await discordSdk.commands.getUser();
-                userId = user.id;
-                
-                // Load deals
+                // Load deals (works with or without Discord)
                 await loadDeals();
                 
             } catch (error) {
-                console.error('Auth error:', error);
-                document.getElementById('content').innerHTML = 
-                    '<div class="error">Please launch this activity from Discord</div>';
+                console.log('Not running in Discord, loading deals anyway...');
+                // Load deals even if Discord auth fails
+                await loadDeals();
             }
         }
         
@@ -222,10 +255,21 @@
                 const response = await fetch('/api/deals');
                 const deals = await response.json();
                 
+                // Find new deals (not in knownDealIds)
+                const newDealIds = new Set();
+                deals.forEach(deal => {
+                    if (!knownDealIds.has(deal.id)) {
+                        newDealIds.add(deal.id);
+                    }
+                });
+                
+                // Update known deals
+                deals.forEach(deal => knownDealIds.add(deal.id));
+                
                 // Group deals by category
                 const categories = groupByCategory(deals);
                 
-                renderCategories(categories);
+                renderCategories(categories, newDealIds);
                 
             } catch (error) {
                 console.error('Error loading deals:', error);
@@ -292,7 +336,7 @@
             return categories;
         }
         
-        function renderCategories(categories) {
+        function renderCategories(categories, newDealIds = new Set()) {
             const container = document.getElementById('content');
             container.innerHTML = '';
             
@@ -302,26 +346,32 @@
             
             sortedCategories.forEach(([categoryName, categoryData]) => {
                 const card = document.createElement('div');
-                card.className = 'category-card';
                 
-                const dealsHtml = categoryData.deals.slice(0, 3).map(deal => `
-                    <div class="deal-item">
-                        <div class="deal-info">
-                            <h4>${escapeHtml(deal.name)}</h4>
-                            <p>${escapeHtml(deal.description?.substring(0, 50) || 'No description')}...</p>
+                // Check if this category has new deals
+                const hasNewDeals = categoryData.deals.some(deal => newDealIds.has(deal.id));
+                card.className = hasNewDeals ? 'category-card new-deals' : 'category-card';
+                
+                const dealsHtml = categoryData.deals.slice(0, 3).map(deal => {
+                    const isNew = newDealIds.has(deal.id);
+                    return `
+                        <div class="deal-item ${isNew ? 'new-deal' : ''}">
+                            <div class="deal-info">
+                                <h4>${escapeHtml(deal.name)} ${isNew ? '<span style="color: #00d4ff; font-size: 10px; opacity: 0.8;">new</span>' : ''}</h4>
+                                <p>${escapeHtml(deal.description?.substring(0, 50) || 'No description')}...</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="deal-price">$${deal.price}</div>
+                                <button class="buy-button" onclick="buyDeal('${deal.id}')">Buy</button>
+                            </div>
                         </div>
-                        <div style="text-align: right;">
-                            <div class="deal-price">$${deal.price}</div>
-                            <button class="buy-button" onclick="buyDeal('${deal.id}')">Buy</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
                 
                 card.innerHTML = `
                     <div class="category-header">
                         <span class="category-icon">${categoryData.icon}</span>
                         <span class="category-title">${escapeHtml(categoryName)}</span>
-                        <span class="category-count">${categoryData.deals.length} deals</span>
+                        <span class="category-count">${categoryData.deals.length} deals ${hasNewDeals ? '<span style="color: #00d4ff; font-size: 10px;">+new</span>' : ''}</span>
                     </div>
                     <div class="deals-list">
                         ${dealsHtml}
@@ -344,6 +394,12 @@
         }
         
         async function buyDeal(dealId) {
+            // If not logged in via Discord, show message
+            if (!userId) {
+                alert('Please use the /buy command in Discord to purchase this deal.');
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/transactions', {
                     method: 'POST',
@@ -381,8 +437,41 @@
             alert('View all deals in ' + categoryName + ' - Coming soon!');
         }
         
+        // Initialize SSE for real-time updates
+        function initSSE() {
+            const eventSource = new EventSource('/api/events');
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('SSE message:', data);
+                    
+                    if (data.type === 'deals_updated') {
+                        console.log('🔄 Deals updated, refreshing...');
+                        loadDeals();
+                    } else if (data.type === 'transaction_completed') {
+                        console.log('✅ Transaction completed:', data.transaction);
+                        loadDeals();
+                    }
+                } catch (err) {
+                    console.error('Error parsing SSE message:', err);
+                }
+            };
+            
+            eventSource.onerror = (err) => {
+                console.error('SSE error:', err);
+                // Reconnect after 5 seconds
+                setTimeout(initSSE, 5000);
+            };
+            
+            eventSource.onopen = () => {
+                console.log('✅ SSE connection established');
+            };
+        }
+        
         // Initialize on load
         init();
+        initSSE();
     </script>
 </body>
 </html>
